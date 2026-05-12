@@ -66,6 +66,7 @@ static void MX_TIM2_Init(void);
 void Process_Controller_UART(void);
 void Parse_Controller_Message(char *msg);
 void Set_Ailerons_From_Roll(uint16_t roll);
+void Set_Ruddervators(uint16_t pitch, uint16_t yaw);
 uint16_t clamp_pwm(int value);
 /* USER CODE END PFP */
 
@@ -110,9 +111,13 @@ int main(void)
 
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1); // Left Wing Aileron Servo
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2); // Right Wing Aileron Servo
+  HAL_TIM_PWM_START(&htim2, TIM_CHANNEL_3); // Ruddervator 1
+  HAL_TIM_PWM_START(&htim2, TIM_CHANNEL_4); // Ruddervator 2
   // Initialize to default/neutral position immediately
   __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, 1500);
   __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, 1500 );
+  __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, 1500);
+  __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_4, 1500);
 
   //
 
@@ -123,7 +128,7 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-	Process_Controller_UART(); // staying in UART loop to continuosly read controller inputs
+
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -232,6 +237,14 @@ static void MX_TIM2_Init(void)
   {
     Error_Handler();
   }
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
+  {
+    Error_Handler();
+  }
   /* USER CODE BEGIN TIM2_Init 2 */
 
   /* USER CODE END TIM2_Init 2 */
@@ -323,6 +336,17 @@ void Set_Ailerons_From_Roll(uint16_t roll)
   __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, right_servo);
 }
 
+void Set_Ruddervators(uint16_t pitch, uint16_t yaw) {
+	int deflection_pitch = (int)pitch - 1500;
+	int deflection_yaw = (int)yaw - 1500;
+
+	uint16_t left_servo = clamp_pwm(1500 + deflection_pitch + deflection_yaw);
+	uint16_t right_servo = clamp_pwm(1500 + deflection_pitch - deflection_yaw);
+
+	__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_3, left_servo);
+	__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_4, right_servo);
+}
+
 uint16_t clamp_pwm(int value)
 {
   if (value < 1000) return 1000;
@@ -342,6 +366,7 @@ void Parse_Controller_Message(char *msg)
     yaw_pwm      = clamp_pwm(y);
 
     Set_Ailerons_From_Roll(roll_pwm);
+    Set_Ruddervators(pitch_pwm, yaw_pwm);
   }
 }
 
